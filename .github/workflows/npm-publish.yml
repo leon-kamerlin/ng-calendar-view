@@ -1,0 +1,41 @@
+name: Build
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [15.x]
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Cache node modules
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: https://registry.npmjs.org/
+      - name: npm ci and npm run build:prod
+        run: |
+          npm install -g npm-install-peers
+          cd projects/calendar-view
+          npm install
+          npm-install-peers
+          cd ../../
+          npm ci
+          npm run publish:ci
+          pwd
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}

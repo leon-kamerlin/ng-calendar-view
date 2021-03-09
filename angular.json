@@ -68,7 +68,10 @@
               "projects/calendar-view-example/src/assets"
             ],
             "styles": [
-              "projects/calendar-view-example/src/styles.scss"
+              "projects/calendar-view-example/src/styles/styles.scss",
+              "projects/calendar-view-example/src/styles/highlightjs/material-light.css",
+              "projects/calendar-view-example/src/styles/bootstrap/bootstrap.scss",
+              "projects/calendar-view-example/src/styles/primer/primer.scss"
             ],
             "scripts": []
           },

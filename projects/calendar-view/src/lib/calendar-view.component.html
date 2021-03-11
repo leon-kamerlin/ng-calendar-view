@@ -35,13 +35,13 @@
             </mat-select>
         </mat-form-field>
 
-        <button mat-icon-button mwlCalendarPreviousView [view]="(state$ | async).view" [viewDate]="(state$ | async).viewDate">
+        <button mat-icon-button mwlCalendarPreviousView (viewDateChange)="onViewDateChange($event)" [view]="(state$ | async).view" [viewDate]="(state$ | async).viewDate">
             <mat-icon>chevron_left</mat-icon>
         </button>
-        <button mat-icon-button mwlCalendarToday [viewDate]="(state$ | async).viewDate">
+        <button mat-icon-button mwlCalendarToday (viewDateChange)="onViewDateChange($event)" [viewDate]="(state$ | async).viewDate">
             <mat-icon>today</mat-icon>
         </button>
-        <button mat-icon-button mwlCalendarNextView [view]="(state$ | async).view" [viewDate]="(state$ | async).viewDate">
+        <button mat-icon-button mwlCalendarNextView (viewDateChange)="onViewDateChange($event)" [view]="(state$ | async).view" [viewDate]="(state$ | async).viewDate">
             <mat-icon>chevron_right</mat-icon>
         </button>
     </mat-toolbar-row>

@@ -1,44 +1,54 @@
 <mat-toolbar color="primary">
     <mat-toolbar-row>
-        <span fxFlex fxHide="false" fxHide.gt-xs>{{ viewDate | calendarDate:(view + 'ViewTitle'):'en' }}</span>
+        <span fxFlex fxHide="false" fxHide.gt-xs>{{ (state$ | async).viewDate | calendarDate:((state$ | async).view + 'ViewTitle'):'en' }}</span>
     </mat-toolbar-row>
     <mat-toolbar-row>
-        <span fxFlex fxShow="false" fxShow.gt-xs>{{ viewDate | calendarDate:(view + 'ViewTitle'):'en' }}</span>
+        <span fxFlex fxShow="false" fxShow.gt-xs>{{ (state$ | async).viewDate | calendarDate:((state$ | async).view + 'ViewTitle'):'en' }}</span>
 
         <div fxShow="false" fxShow.gt-xs>
-            <button mat-button (click)="changeViewToMonth()" [class.active]="view === 'month'">Month</button>
-            <button mat-button (click)="changeViewToWeek()" [class.active]="view === 'week'">Week</button>
-            <button mat-button (click)="changeViewToDay()" [class.active]="view === 'day'">Day</button>
+            <button mat-button (click)="changeViewToMonth()" [class.active]="(state$ | async).view === 'month'">Month</button>
+            <button mat-button (click)="changeViewToWeek()" [class.active]="(state$ | async).view === 'week'">Week</button>
+            <button mat-button (click)="changeViewToDay()" [class.active]="(state$ | async).view === 'day'">Day</button>
         </div>
 
+
         <div fxHide="false" fxHide.gt-xs>
-            <button mat-icon-button (click)="changeViewToMonth()" [class.active]="view === 'month'">
+            <button mat-icon-button (click)="changeViewToMonth()" [class.active]="(state$ | async).view === 'month'">
                 <mat-icon>view_module</mat-icon>
             </button>
-            <button mat-icon-button (click)="changeViewToWeek()" [class.active]="view === 'week'">
+            <button mat-icon-button (click)="changeViewToWeek()" [class.active]="(state$ | async).view === 'week'">
                 <mat-icon>view_week</mat-icon>
             </button>
-            <button mat-icon-button (click)="changeViewToDay()" [class.active]="view === 'day'">
+            <button mat-icon-button (click)="changeViewToDay()" [class.active]="(state$ | async).view === 'day'">
                 <mat-icon>view_day</mat-icon>
             </button>
         </div>
 
         <span fxFlex fxHide="false" fxHide.gt-xs></span>
 
-        <button mat-icon-button mwlCalendarPreviousView [view]="view" [(viewDate)]="viewDate">
+        <mat-form-field appearance="legacy" style="max-width: 100px;">
+            <mat-label>Hour Segment</mat-label>
+            <mat-select [value]="(state$ | async).hourSegments" (selectionChange)="onHourSegmentChange($event)">
+                <mat-option *ngFor="let segment of (state$ | async).segments" [value]="segment.value">
+                    {{ segment.viewValue }}
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <button mat-icon-button mwlCalendarPreviousView [view]="(state$ | async).view" [viewDate]="(state$ | async).viewDate">
             <mat-icon>chevron_left</mat-icon>
         </button>
-        <button mat-icon-button mwlCalendarToday [(viewDate)]="viewDate">
+        <button mat-icon-button mwlCalendarToday [viewDate]="(state$ | async).viewDate">
             <mat-icon>today</mat-icon>
         </button>
-        <button mat-icon-button mwlCalendarNextView [view]="view" [(viewDate)]="viewDate">
+        <button mat-icon-button mwlCalendarNextView [view]="(state$ | async).view" [viewDate]="(state$ | async).viewDate">
             <mat-icon>chevron_right</mat-icon>
         </button>
     </mat-toolbar-row>
 </mat-toolbar>
 
 
-<div [ngSwitch]="view" class="calendar-view">
+<div [ngSwitch]="(state$ | async).view" class="calendar-view">
 
     <ng-template
         #weekViewHourSegmentTemplate
@@ -82,35 +92,35 @@
 
     <mwl-calendar-month-view
         *ngSwitchCase="'month'"
-        [viewDate]="viewDate"
-        [events]="events"
-        [excludeDays]="excludeDays"
+        [viewDate]="(state$ | async).viewDate"
+        [events]="(state$ | async).events"
+        [excludeDays]="(state$ | async).excludeDays"
         (dayClicked)="onDayClicked($event.day.date)"
         (beforeViewRender)="beforeMonthViewRender($event)">
     </mwl-calendar-month-view>
 
     <mwl-calendar-week-view
         *ngSwitchCase="'week'"
-        [viewDate]="viewDate"
-        [events]="events"
-        [dayStartHour]="dayStartHour"
-        [dayEndHour]="dayEndHour"
-        [hourSegments]="hourSegments"
+        [viewDate]="(state$ | async).viewDate"
+        [events]="(state$ | async).events"
+        [dayStartHour]="(state$ | async).dayStartHour"
+        [dayEndHour]="(state$ | async).dayEndHour"
+        [hourSegments]="(state$ | async).hourSegments"
         (dayHeaderClicked)="onDayHeaderClicked($event.day.date)"
         [hourSegmentTemplate]="weekViewHourSegmentTemplate"
         (eventClicked)="onEventClicked($event.event)"
         (eventTimesChanged)="onEventMoved($event)"
-        [excludeDays]="excludeDays"
+        [excludeDays]="(state$ | async).excludeDays"
         (beforeViewRender)="beforeWeekViewRender($event)">
     </mwl-calendar-week-view>
 
     <mwl-calendar-day-view
         *ngSwitchCase="'day'"
-        [viewDate]="viewDate"
-        [events]="events"
-        [dayStartHour]="dayStartHour"
-        [dayEndHour]="dayEndHour"
-        [hourSegments]="hourSegments"
+        [viewDate]="(state$ | async).viewDate"
+        [events]="(state$ | async).events"
+        [dayStartHour]="(state$ | async).dayStartHour"
+        [dayEndHour]="(state$ | async).dayEndHour"
+        [hourSegments]="(state$ | async).hourSegments"
         [hourSegmentTemplate]="defaultTemplate"
         (eventClicked)="onEventClicked($event.event)"
         (eventTimesChanged)="onEventMoved($event)"

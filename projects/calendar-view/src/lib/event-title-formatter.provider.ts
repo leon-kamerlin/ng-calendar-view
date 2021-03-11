@@ -1,5 +1,5 @@
 import { CalendarEvent, CalendarEventTitleFormatter } from 'angular-calendar';
-import { MetaEvent } from '../meta-event';
+import { MetaEvent } from './meta-event';
 
 export class CustomEventTitleFormatter extends CalendarEventTitleFormatter {
 

@@ -17,10 +17,10 @@ import { registerLocaleData } from '@angular/common';
 import localeHr from '@angular/common/locales/hr';
 import { addDays, addMinutes, endOfWeek, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 import { WeekViewHourSegment } from 'calendar-utils';
-import { fromEvent } from 'rxjs';
+import { fromEvent, pipe } from 'rxjs';
 import { finalize, first, takeUntil } from 'rxjs/operators';
 import { MatSelectChange } from '@angular/material/select';
-import { MetaEvent } from 'leon-angular-utils';
+import { DispatcherActionTypes, MetaEvent } from 'leon-angular-utils';
 import { CalendarViewStore } from './calendar-view.store';
 import { EventFormDialogComponent } from './event-form/dialog/event-form-dialog/event-form-dialog.component';
 import { MatDialog } from '@angular/material/dialog';
@@ -139,6 +139,23 @@ export class CalendarViewComponent implements OnInit {
                     this.store.addTemporarilyEvent(this.newEvent);
                     this.createEvent.emit(this.newEvent);
                 }
+
+
+               /* EventFormDialogComponent.openDialog(this.matDialog, {
+                    event: this.newEvent,
+                    serviceCategories: [],
+                    clients: []
+                }).pipe(
+                    first()
+                ).subscribe((result) => {
+                    if (result.action !== DispatcherActionTypes.CLOSE_DIALOG) {
+                        this.store.updateEvent(result.data);
+                    } else {
+                        this.store.removeEvent(this.newEvent);
+                    }
+                });*/
+
+
             });
         });
 
@@ -161,8 +178,12 @@ export class CalendarViewComponent implements OnInit {
             event,
             serviceCategories: [],
             clients: []
-        }).subscribe((result) => {
-
+        }).pipe(
+            first()
+        ).subscribe((result) => {
+            if (result.action !== DispatcherActionTypes.CLOSE_DIALOG) {
+                this.store.updateEvent(result.data);
+            }
         });
     }
 

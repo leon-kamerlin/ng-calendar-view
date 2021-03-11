@@ -1,5 +1,15 @@
-// @import "../../../styles/primer/components/calendar";
+@import "../../../../calendar-view-example/src/styles/primer/components/calendar";
 
 .calendar-view {
-  background-color: red;
+    background-color: red;
 }
+
+.cal-disabled {
+    background-color: #eee;
+    pointer-events: none;
+}
+
+.cal-disabled .cal-day-number {
+    opacity: 0.1;
+}
+

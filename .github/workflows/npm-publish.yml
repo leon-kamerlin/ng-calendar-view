@@ -29,10 +29,8 @@ jobs:
           registry-url: https://registry.npmjs.org/
       - name: npm ci and npm run build:prod
         run: |
-          npm install -g npm-install-peers
           cd projects/calendar-view
-          npm install
-          npm-install-peers
+          npm install --legacy-peer-deps
           cd ../../
           npm ci
           npm run publish:ci

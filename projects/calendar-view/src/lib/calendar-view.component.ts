@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, LOCALE_ID, OnInit, Output, ViewEncapsulation } from '@angular/core';
-import { ceilToNearest, defaultEvent, floorToNearest, hourSegments } from './helpers';
+import { ChangeDetectionStrategy, Component, EventEmitter, LOCALE_ID, OnInit, Output, ViewEncapsulation } from '@angular/core';
+import { ceilToNearest, defaultEvent, floorToNearest } from './helpers';
 
 import {
     CalendarDateFormatter,
@@ -8,8 +8,7 @@ import {
     CalendarEventTitleFormatter,
     CalendarMonthViewBeforeRenderEvent,
     CalendarView,
-    CalendarWeekViewBeforeRenderEvent,
-    DAYS_OF_WEEK
+    CalendarWeekViewBeforeRenderEvent
 } from 'angular-calendar';
 import * as uuid from 'uuid';
 import { CustomEventTitleFormatter } from './event-title-formatter.provider';
@@ -21,24 +20,11 @@ import { WeekViewHourSegment } from 'calendar-utils';
 import { fromEvent } from 'rxjs';
 import { finalize, first, takeUntil } from 'rxjs/operators';
 import { MatSelectChange } from '@angular/material/select';
-import { ComponentStore } from '@ngrx/component-store';
-import { SelectorView } from 'leon-angular-utils';
-import { MetaEvent } from './meta-event';
+import { MetaEvent } from 'leon-angular-utils';
+import { CalendarViewStore } from './calendar-view.store';
+import { EventFormDialogComponent } from './event-form/dialog/event-form-dialog/event-form-dialog.component';
+import { MatDialog } from '@angular/material/dialog';
 
-interface State {
-    view: CalendarView;
-    calendarTitleView: string;
-    viewDate: Date;
-    locale: string;
-    excludeDays: number[];
-    weekStartsOn: DAYS_OF_WEEK;
-    dayStartHour: number;
-    dayEndHour: number;
-    hourSegments: number;
-    segments: SelectorView[];
-    events: CalendarEvent<MetaEvent>[];
-    temporarilyEvents: CalendarEvent<MetaEvent>[];
-}
 
 type CalendarPeriod = 'day' | 'week' | 'month';
 
@@ -58,33 +44,12 @@ type CalendarPeriod = 'day' | 'week' | 'month';
             useClass: CustomDateFormatter
         },
         { provide: LOCALE_ID, useValue: 'en-EN' },
-        ComponentStore
+        CalendarViewStore
     ]
 })
 export class CalendarViewComponent implements OnInit {
-
-    constructor(private readonly componentStore: ComponentStore<State>) {
-        this.componentStore.setState({
-            view: CalendarView.Week,
-            calendarTitleView: 'weekViewTitle',
-            viewDate: new Date(),
-            locale: 'en-EN',
-            excludeDays: [],
-            weekStartsOn: DAYS_OF_WEEK.MONDAY,
-            dayStartHour: 8,
-            dayEndHour: 18,
-            hourSegments: 4,
-            segments: hourSegments,
-            events: [],
-            temporarilyEvents: []
-        });
-    }
-
     private dragToCreateActive = false;
     private newEvent: CalendarEvent<MetaEvent>;
-
-
-    readonly state$ = this.componentStore.select(state => state);
 
     @Output()
     createEvent: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
@@ -93,70 +58,24 @@ export class CalendarViewComponent implements OnInit {
     @Output()
     eventClicked: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
 
-    readonly addEvent = this.componentStore.updater(
-        (state: State, event: CalendarEvent<MetaEvent>) => ({ ...state, events: [...state.events, event] })
-    );
+    constructor(
+        private matDialog: MatDialog,
+        public readonly store: CalendarViewStore
+    ) {
 
-    readonly removeEvent = this.componentStore.updater(
-        (state: State, event: CalendarEvent<MetaEvent>) => ({ ...state, events: state.events.filter(item => item.id !== event.id) })
-    );
-
-    readonly updateEvent = this.componentStore.updater(
-        (state: State, event: CalendarEvent<MetaEvent>) => ({
-            ...state,
-            events: state.events.map(item => item.id === event.id ? event : item)
-        })
-    );
-
-
-    readonly removeTemporarilyEvent = this.componentStore.updater(
-        (state: State, event: CalendarEvent<MetaEvent>) => ({
-            ...state,
-            temporarilyEvents: state.temporarilyEvents.filter(item => item.id !== event.id)
-        })
-    );
-
-    readonly addTemporarilyEvent = this.componentStore.updater(
-        (state: State, event: CalendarEvent<MetaEvent>) => ({ ...state, temporarilyEvents: [...state.temporarilyEvents, event] })
-    );
-
-
-    readonly setView = (view: CalendarView) => {
-        let calendarTitleView = 'weekViewTitle';
-
-        switch (view) {
-            case CalendarView.Day:
-                calendarTitleView = 'dayViewTitle';
-                break;
-            case CalendarView.Week:
-                calendarTitleView = 'weekViewTitle';
-                break;
-            case CalendarView.Month:
-                calendarTitleView = 'monthViewTitle';
-
-        }
-        this.componentStore.patchState({
-            view,
-            calendarTitleView
-        });
     }
-
-    readonly setViewDate = (viewDate: Date) => {
-        this.componentStore.patchState({ viewDate });
-    }
-
 
     ngOnInit() {
         registerLocaleData(localeHr);
         if (localStorage.getItem('calendarHourSegment')) {
             const hs: number = Number(localStorage.getItem('calendarHourSegment'));
-            this.componentStore.patchState({ hourSegments: hs });
+            this.store.setHourSegments(hs);
         }
 
-        this.state$.pipe(
+        this.store.view$.pipe(
             first()
-        ).subscribe((state) => {
-            this.startOfPeriod(state.view, new Date());
+        ).subscribe((view) => {
+            this.startOfPeriod(view, new Date());
         });
     }
 
@@ -171,7 +90,7 @@ export class CalendarViewComponent implements OnInit {
 
 
     startDragToCreate(segment: WeekViewHourSegment, mouseDownEvent: MouseEvent, segmentElement: HTMLElement) {
-        this.state$.pipe(
+        this.store.state$.pipe(
             first()
         ).subscribe((state) => {
             // mouse down event
@@ -181,7 +100,7 @@ export class CalendarViewComponent implements OnInit {
                 start: segment.date,
                 end: addMinutes(new Date(), 30)
             };
-            this.addEvent(this.newEvent);
+            this.store.addEvent(this.newEvent);
 
             const segmentPosition = segmentElement.getBoundingClientRect();
             this.dragToCreateActive = true;
@@ -207,7 +126,7 @@ export class CalendarViewComponent implements OnInit {
                     this.newEvent.start = newEnd;
                 }
 
-                this.updateEvent(this.newEvent);
+                this.store.updateEvent(this.newEvent);
             });
 
             // mouse up event
@@ -217,7 +136,7 @@ export class CalendarViewComponent implements OnInit {
                 });
                 if (index === -1) {
                     // Event doesn't exist create new event
-                    this.addTemporarilyEvent(this.newEvent);
+                    this.store.addTemporarilyEvent(this.newEvent);
                     this.createEvent.emit(this.newEvent);
                 }
             });
@@ -232,42 +151,47 @@ export class CalendarViewComponent implements OnInit {
             end: changeEvent.newEnd
         };
 
-        this.updateEvent(movedEvent);
+        this.store.updateEvent(movedEvent);
         this.eventMoved.emit(movedEvent);
     }
 
     onEventClicked(event: CalendarEvent<MetaEvent>) {
-        this.eventClicked.emit({
-            ...event as CalendarEvent<MetaEvent>
+        this.eventClicked.emit(event);
+        EventFormDialogComponent.openDialog(this.matDialog, {
+            event,
+            serviceCategories: [],
+            clients: []
+        }).subscribe((result) => {
+
         });
     }
 
     onDayClicked(date: Date) {
-        this.setViewDate(date);
+        this.store.setViewDate(date);
         this.changeViewToDay();
 
     }
 
     onDayHeaderClicked(date: Date) {
-        this.setViewDate(date);
+        this.store.setViewDate(date);
         this.changeViewToDay();
     }
 
     onViewDateChange(viewDate: Date) {
-        this.setViewDate(viewDate);
+        this.store.setViewDate(viewDate);
     }
 
 
     changeViewToMonth() {
-        this.setView(CalendarView.Month);
+        this.store.setView(CalendarView.Month);
     }
 
     changeViewToWeek() {
-        this.setView(CalendarView.Week);
+        this.store.setView(CalendarView.Week);
     }
 
     changeViewToDay() {
-        this.setView(CalendarView.Day);
+        this.store.setView(CalendarView.Day);
     }
 
     dateIsValid(date: Date): boolean {
@@ -277,10 +201,7 @@ export class CalendarViewComponent implements OnInit {
     onHourSegmentChange(matSelectChange: MatSelectChange) {
         const { value } = matSelectChange;
         localStorage.setItem('calendarHourSegment', value);
-
-        this.componentStore.patchState({
-            hourSegments: value
-        });
+        this.store.setHourSegments(value);
     }
 
     beforeMonthViewRender(event: CalendarMonthViewBeforeRenderEvent) {

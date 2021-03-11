@@ -1,7 +1,7 @@
 import { CalendarEvent } from 'calendar-utils';
 import { addMinutes } from 'date-fns';
 import { SelectorView } from 'leon-angular-utils';
-import { MetaEvent } from './meta-event';
+import { MetaEvent } from 'leon-angular-utils';
 import { MatColor } from 'ng-components-leon';
 
 

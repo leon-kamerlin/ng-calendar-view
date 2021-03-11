@@ -5,4 +5,3 @@
 
 export * from './lib/calendar-view.component';
 export * from './lib/calendar-view.module';
-export * from './lib/meta-event';

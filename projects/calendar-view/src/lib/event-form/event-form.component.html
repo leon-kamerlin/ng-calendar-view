@@ -1,0 +1,51 @@
+<form [formGroup]="form">
+
+    <!--Services-->
+    <mat-form-field>
+        <mat-label>Services</mat-label>
+        <mat-select [formControl]="services" multiple>
+            <mat-optgroup *ngFor="let serviceCategory of serviceCategories" [label]="serviceCategory.title">
+                <mat-option *ngFor="let service of serviceCategory.services" [value]="service.name">
+                    {{service.name}}
+                </mat-option>
+            </mat-optgroup>
+        </mat-select>
+    </mat-form-field>
+    <!--Clients-->
+    <mat-form-field>
+        <mat-label>Clients</mat-label>
+        <mat-select [formControl]="client">
+            <mat-option *ngFor="let client of clients"
+                        [value]="client.id">{{ client.firstName }}</mat-option>
+        </mat-select>
+    </mat-form-field>
+
+    <!--Note-->
+
+    <mat-form-field>
+        <mat-label>Note {{note | fieldRequired}}</mat-label>
+        <input matInput placeholder="Title {{note | fieldRequired}}" [formControl]="note">
+    </mat-form-field>
+
+    <!--Start-->
+    <mat-label>Start</mat-label>
+    <lib-time-picker [formControl]="start"></lib-time-picker>
+
+    <!--End-->
+
+    <mat-label>End</mat-label>
+    <lib-time-picker [formControl]="end"></lib-time-picker>
+
+    <!--Color-->
+    <mat-label>Color</mat-label>
+    <lib-material-color-picker [formControl]="color"></lib-material-color-picker>
+
+
+    <button class="mat-raised-button" (click)="close()" style="margin-right: 10px;">Close</button>
+    <button mat-raised-button color="primary" (click)="onSubmit(form.value)" [disabled]="form.invalid"
+            style="margin-right: 50px;">Save
+    </button>
+    <lib-delete-button (delete)="onDelete()" *ngIf="event?.meta?.employeeId"></lib-delete-button>
+
+</form>
+

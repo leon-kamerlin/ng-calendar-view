@@ -4,7 +4,7 @@ import {
     Component,
     EventEmitter,
     Input,
-    LOCALE_ID,
+    LOCALE_ID, OnDestroy,
     OnInit,
     Output,
     ViewEncapsulation
@@ -27,7 +27,7 @@ import { registerLocaleData } from '@angular/common';
 import localeHr from '@angular/common/locales/hr';
 import { addDays, addMinutes, endOfWeek, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 import { WeekViewHourSegment } from 'calendar-utils';
-import { fromEvent, Observable, of, pipe, ReplaySubject } from 'rxjs';
+import { forkJoin, fromEvent, Observable, of, pipe, ReplaySubject } from 'rxjs';
 import { finalize, first, mergeMap, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
 import { MatSelectChange } from '@angular/material/select';
 import { Client, DispatcherActionTypes, MetaEvent, ServiceCategory } from 'leon-angular-utils';
@@ -58,10 +58,11 @@ type MyObj = { segment: WeekViewHourSegment, mouseDownEvent: MouseEvent, segment
         CalendarViewStore
     ]
 })
-export class CalendarViewComponent implements OnInit, AfterViewInit {
+export class CalendarViewComponent implements OnInit, AfterViewInit, OnDestroy {
     private dragToCreateActive = false;
     private newEvent: CalendarEvent<MetaEvent>;
-    private startDrageToCreateSubject: ReplaySubject<MyObj> = new ReplaySubject<MyObj>();
+    private startDrageToCreateEventSubject: ReplaySubject<MyObj> = new ReplaySubject<MyObj>();
+    private destroySubject: ReplaySubject<void> = new ReplaySubject<void>();
 
     @Input()
     services: Array<ServiceCategory> = [];
@@ -80,10 +81,13 @@ export class CalendarViewComponent implements OnInit, AfterViewInit {
 
     @Output()
     eventCreated: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
+
     @Output()
     eventUpdated: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
+
     @Output()
     eventDeleted: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
+
     @Output()
     eventClicked: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
 
@@ -127,7 +131,21 @@ export class CalendarViewComponent implements OnInit, AfterViewInit {
                 const endOfView: Date = endOfWeek(state.viewDate);
                 return this.mouseMove$(segmentPosition, segment, endOfView, state);
             }),
+            takeUntil(this.destroy$)
         ).subscribe();
+    }
+
+    ngOnDestroy() {
+        this.destroySubject.next();
+        this.destroySubject.complete();
+    }
+
+    get startDragToCreateEvent$() {
+        return this.startDrageToCreateEventSubject.asObservable();
+    }
+
+    get destroy$() {
+        return this.destroySubject.asObservable();
     }
 
 
@@ -149,12 +167,40 @@ export class CalendarViewComponent implements OnInit, AfterViewInit {
             }),
             finalize(() => {
                 // It gets called when observable is terminated
-                this.openEventDialog(this.matDialog, this.newEvent, false);
+                this.openEventDialog(this.matDialog, this.newEvent, false).subscribe();
                 this.dragToCreateActive = false;
             }),
             takeUntil(
                 fromEvent(document, 'mouseup')
             )
+        );
+    }
+
+    private openEventDialog(matDialog: MatDialog, event: CalendarEvent<MetaEvent>, isExistingEvent: boolean): Observable<any> {
+        return EventFormDialogComponent.openDialog(matDialog, {
+            event,
+            serviceCategories: [],
+            clients: this.clients,
+            employeeId: this.employeeId
+        }).pipe(
+            first(),
+            tap((result) => {
+                if (result.action === DispatcherActionTypes.UPDATE) {
+                    this.eventUpdated.emit(result.data);
+                    this.store.updateEvent(result.data);
+                } else if (result.action === DispatcherActionTypes.DELETE) {
+                    this.eventDeleted.emit(result.data);
+                    this.store.removeEvent(result.data);
+                } else if (result.action === DispatcherActionTypes.CREATE) {
+                    this.eventCreated.emit(result.data);
+                    this.store.updateEvent(result.data);
+                } else if (result.action === DispatcherActionTypes.CLOSE_DIALOG) {
+                    if (!isExistingEvent) {
+                        this.store.removeEvent(result.data);
+                    }
+                }
+            }),
+            takeUntil(this.destroy$)
         );
     }
 
@@ -167,40 +213,13 @@ export class CalendarViewComponent implements OnInit, AfterViewInit {
         }[period](date);
     }
 
-    get startDragToCreateEvent$() {
-        return this.startDrageToCreateSubject.asObservable();
-    }
+
 
     startDragToCreate(segment: WeekViewHourSegment, mouseDownEvent: MouseEvent, segmentElement: HTMLElement) {
-        this.startDrageToCreateSubject.next({ segment, mouseDownEvent, segmentElement });
+        this.startDrageToCreateEventSubject.next({ segment, mouseDownEvent, segmentElement });
     }
 
-    private openEventDialog(matDialog: MatDialog, event: CalendarEvent<MetaEvent>, isExistingEvent: boolean) {
-        EventFormDialogComponent.openDialog(matDialog, {
-            event,
-            serviceCategories: [],
-            clients: this.clients,
-            employeeId: this.employeeId
-        }).pipe(
-            first()
-        ).subscribe((result) => {
-            if (result.action === DispatcherActionTypes.UPDATE) {
-                this.eventUpdated.emit(result.data);
-                this.store.updateEvent(result.data);
-            } else if (result.action === DispatcherActionTypes.DELETE) {
-                this.eventDeleted.emit(result.data);
-                this.store.removeEvent(result.data);
-            } else if (result.action === DispatcherActionTypes.CREATE) {
-                this.eventCreated.emit(result.data);
-                this.store.updateEvent(result.data);
-            } else if (result.action === DispatcherActionTypes.CLOSE_DIALOG) {
-                if (!isExistingEvent) {
-                    this.store.removeEvent(result.data);
-                }
 
-            }
-        });
-    }
 
     onEventMoved(changeEvent: CalendarEventTimesChangedEvent) {
         const movedEvent: CalendarEvent<MetaEvent> = {
@@ -214,9 +233,8 @@ export class CalendarViewComponent implements OnInit, AfterViewInit {
     }
 
     onEventClicked(event: CalendarEvent<MetaEvent>) {
-        console.log('onEventClicked');
         this.eventClicked.emit(event);
-        this.openEventDialog(this.matDialog, event, true);
+        this.openEventDialog(this.matDialog, event, true).subscribe();
     }
 
     onDayClicked(date: Date) {

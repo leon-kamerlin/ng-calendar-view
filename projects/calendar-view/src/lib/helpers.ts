@@ -2,7 +2,6 @@ import { CalendarEvent } from 'calendar-utils';
 import { addMinutes } from 'date-fns';
 import { SelectorView } from 'leon-angular-utils';
 import { MetaEvent } from 'leon-angular-utils';
-import { MatColor } from 'ng-components-leon';
 
 
 export const floorToNearest = (amount: number, precision: number): number => {
@@ -46,7 +45,6 @@ export const defaultEvent: CalendarEvent<MetaEvent> = {
     title: 'An event',
     start: new Date(),
     end: addMinutes(new Date(), 30),
-    color: MatColor.PURPLE,
     draggable: true,
     resizable: {
         beforeStart: true,

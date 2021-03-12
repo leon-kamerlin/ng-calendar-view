@@ -3,7 +3,7 @@ import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms'
 import * as _ from 'lodash';
 import { CalendarEvent, EventColor } from 'calendar-utils';
 import { EventFormDialogComponent } from './dialog/event-form-dialog/event-form-dialog.component';
-import { MetaEvent } from 'leon-angular-utils';
+import { MatColor, MetaEvent } from 'leon-angular-utils';
 import { Client, DataDispatcher, DispatcherActionTypes, ServiceCategory } from 'leon-angular-utils';
 
 export class EventFromSignature {
@@ -93,13 +93,20 @@ export class EventFormComponent implements OnInit, OnChanges {
             employeeId: this.employeeId
         };
 
+        const matColor: MatColor = value?.color;
+
+        const color: EventColor = {
+            primary: matColor.dark,
+            secondary: matColor.light
+        };
+
         // deletes undefined properties
         meta = _.pickBy(meta, _.identity);
 
         delete value?.services;
         delete value?.client;
         const data: CalendarEvent<MetaEvent> = {
-            ...this.event, ...value, meta
+            ...this.event, ...value, meta, color
         };
 
         if (EventFormDialogComponent.hasCalendarEventEmployeeId(data)) {

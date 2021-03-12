@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, LOCALE_ID, OnInit, Output, ViewEncapsulation } from '@angular/core';
+import {
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    Component,
+    EventEmitter,
+    Input,
+    LOCALE_ID,
+    OnInit,
+    Output,
+    ViewEncapsulation
+} from '@angular/core';
 import { ceilToNearest, defaultEvent, floorToNearest } from './helpers';
 
 import {
@@ -17,16 +27,17 @@ import { registerLocaleData } from '@angular/common';
 import localeHr from '@angular/common/locales/hr';
 import { addDays, addMinutes, endOfWeek, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 import { WeekViewHourSegment } from 'calendar-utils';
-import { fromEvent, pipe } from 'rxjs';
-import { finalize, first, takeUntil } from 'rxjs/operators';
+import { fromEvent, Observable, of, pipe, ReplaySubject } from 'rxjs';
+import { finalize, first, mergeMap, takeUntil, tap, withLatestFrom } from 'rxjs/operators';
 import { MatSelectChange } from '@angular/material/select';
 import { Client, DispatcherActionTypes, MetaEvent, ServiceCategory } from 'leon-angular-utils';
-import { CalendarViewStore } from './calendar-view.store';
+import { CalendarViewState, CalendarViewStore } from './calendar-view.store';
 import { EventFormDialogComponent } from './event-form/dialog/event-form-dialog/event-form-dialog.component';
 import { MatDialog } from '@angular/material/dialog';
 
 
 type CalendarPeriod = 'day' | 'week' | 'month';
+type MyObj = { segment: WeekViewHourSegment, mouseDownEvent: MouseEvent, segmentElement: HTMLElement };
 
 @Component({
     selector: 'lib-calendar-view',
@@ -47,9 +58,10 @@ type CalendarPeriod = 'day' | 'week' | 'month';
         CalendarViewStore
     ]
 })
-export class CalendarViewComponent implements OnInit {
+export class CalendarViewComponent implements OnInit, AfterViewInit {
     private dragToCreateActive = false;
     private newEvent: CalendarEvent<MetaEvent>;
+    private startDrageToCreateSubject: ReplaySubject<MyObj> = new ReplaySubject<MyObj>();
 
     @Input()
     services: Array<ServiceCategory> = [];
@@ -97,46 +109,33 @@ export class CalendarViewComponent implements OnInit {
         });
     }
 
+    ngAfterViewInit() {
+        this.startDragToCreateEvent$.pipe(
+            withLatestFrom(this.store.state$),
+            mergeMap(([{ segment, segmentElement, mouseDownEvent }, state]) => {
+                // mouse down event
+                this.newEvent = {
+                    ...defaultEvent,
+                    id: uuid.v4(),
+                    start: segment.date,
+                    end: addMinutes(new Date(), 30)
+                };
+                this.store.addEvent(this.newEvent);
 
-    startOfPeriod(period: CalendarPeriod, date: Date): Date {
-        return {
-            day: startOfDay,
-            week: startOfWeek,
-            month: startOfMonth,
-        }[period](date);
+                const segmentPosition: DOMRect = segmentElement.getBoundingClientRect();
+                this.dragToCreateActive = true;
+                const endOfView: Date = endOfWeek(state.viewDate);
+                return this.mouseMove$(segmentPosition, segment, endOfView, state);
+            }),
+        ).subscribe();
     }
 
 
-    startDragToCreate(segment: WeekViewHourSegment, mouseDownEvent: MouseEvent, segmentElement: HTMLElement) {
-        console.log('startDragToCreate');
-        this.store.state$.pipe(
-            first()
-        ).subscribe((state) => {
-            // mouse down event
-            this.newEvent = {
-                ...defaultEvent,
-                id: uuid.v4(),
-                start: segment.date,
-                end: addMinutes(new Date(), 30)
-            };
-            this.store.addEvent(this.newEvent);
-
-            const segmentPosition = segmentElement.getBoundingClientRect();
-            this.dragToCreateActive = true;
-            const endOfView = endOfWeek(state.viewDate);
-
-            // mouse move event
-            fromEvent(document, 'mousemove').pipe(
-                finalize(() => {
-                    console.log('Finalize');
-                    this.dragToCreateActive = false;
-                }),
-                takeUntil(fromEvent(document, 'mouseup'))
-            ).subscribe((mouseMoveEvent: MouseEvent) => {
-
+    private mouseMove$(segmentPosition: DOMRect, segment: WeekViewHourSegment, endOfView: Date, state: CalendarViewState): Observable<Event> {
+        return fromEvent(document, 'mousemove').pipe(
+            tap((mouseMoveEvent: MouseEvent) => {
                 const minutesDiff = ceilToNearest((mouseMoveEvent.clientY - segmentPosition.top) /
                     (state.hourSegments / 2), (60 / state.hourSegments));
-
                 const daysDiff = floorToNearest(mouseMoveEvent.clientX - segmentPosition.left, segmentPosition.width) / segmentPosition.width;
 
                 const newEnd = addDays(addMinutes(segment.date, minutesDiff), daysDiff);
@@ -147,18 +146,33 @@ export class CalendarViewComponent implements OnInit {
                 }
 
                 this.store.updateEvent(this.newEvent);
-            });
+            }),
+            finalize(() => {
+                // It gets called when observable is terminated
+                this.openEventDialog(this.matDialog, this.newEvent, false);
+                this.dragToCreateActive = false;
+            }),
+            takeUntil(
+                fromEvent(document, 'mouseup')
+            )
+        );
+    }
 
-            // mouse up event
-            fromEvent(document, 'mouseup')
-                .pipe(
-                    first()
-                )
-                .subscribe(_ => {
-                    this.openEventDialog(this.matDialog, this.newEvent, false);
-                });
-        });
 
+    startOfPeriod(period: CalendarPeriod, date: Date): Date {
+        return {
+            day: startOfDay,
+            week: startOfWeek,
+            month: startOfMonth,
+        }[period](date);
+    }
+
+    get startDragToCreateEvent$() {
+        return this.startDrageToCreateSubject.asObservable();
+    }
+
+    startDragToCreate(segment: WeekViewHourSegment, mouseDownEvent: MouseEvent, segmentElement: HTMLElement) {
+        this.startDrageToCreateSubject.next({ segment, mouseDownEvent, segmentElement });
     }
 
     private openEventDialog(matDialog: MatDialog, event: CalendarEvent<MetaEvent>, isExistingEvent: boolean) {
@@ -180,8 +194,10 @@ export class CalendarViewComponent implements OnInit {
                 this.eventCreated.emit(result.data);
                 this.store.updateEvent(result.data);
             } else if (result.action === DispatcherActionTypes.CLOSE_DIALOG) {
-                console.log('CloseDialog');
-                this.store.removeEvent(result.data);
+                if (!isExistingEvent) {
+                    this.store.removeEvent(result.data);
+                }
+
             }
         });
     }

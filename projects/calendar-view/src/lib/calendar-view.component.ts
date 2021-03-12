@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, LOCALE_ID, OnInit, Output, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, LOCALE_ID, OnInit, Output, ViewEncapsulation } from '@angular/core';
 import { ceilToNearest, defaultEvent, floorToNearest } from './helpers';
 
 import {
@@ -20,7 +20,7 @@ import { WeekViewHourSegment } from 'calendar-utils';
 import { fromEvent, pipe } from 'rxjs';
 import { finalize, first, takeUntil } from 'rxjs/operators';
 import { MatSelectChange } from '@angular/material/select';
-import { DispatcherActionTypes, MetaEvent } from 'leon-angular-utils';
+import { Client, DispatcherActionTypes, MetaEvent, ServiceCategory } from 'leon-angular-utils';
 import { CalendarViewStore } from './calendar-view.store';
 import { EventFormDialogComponent } from './event-form/dialog/event-form-dialog/event-form-dialog.component';
 import { MatDialog } from '@angular/material/dialog';
@@ -51,12 +51,30 @@ export class CalendarViewComponent implements OnInit {
     private dragToCreateActive = false;
     private newEvent: CalendarEvent<MetaEvent>;
 
+    @Input()
+    services: Array<ServiceCategory> = [];
+    @Input()
+    clients: Array<Client> = [
+        {
+            firstName: 'Leon',
+            lastName: 'Kamerlin',
+            email: 'leon@gmail.com',
+            gender: 'male'
+        }
+    ];
+
+    @Input()
+    employeeId = 'someRandomTestId';
+
     @Output()
-    createEvent: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
+    eventCreated: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
     @Output()
-    eventMoved: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
+    eventUpdated: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
+    @Output()
+    eventDeleted: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
     @Output()
     eventClicked: EventEmitter<CalendarEvent<MetaEvent>> = new EventEmitter();
+
 
     constructor(
         private matDialog: MatDialog,
@@ -90,6 +108,7 @@ export class CalendarViewComponent implements OnInit {
 
 
     startDragToCreate(segment: WeekViewHourSegment, mouseDownEvent: MouseEvent, segmentElement: HTMLElement) {
+        console.log('startDragToCreate');
         this.store.state$.pipe(
             first()
         ).subscribe((state) => {
@@ -109,6 +128,7 @@ export class CalendarViewComponent implements OnInit {
             // mouse move event
             fromEvent(document, 'mousemove').pipe(
                 finalize(() => {
+                    console.log('Finalize');
                     this.dragToCreateActive = false;
                 }),
                 takeUntil(fromEvent(document, 'mouseup'))
@@ -130,35 +150,40 @@ export class CalendarViewComponent implements OnInit {
             });
 
             // mouse up event
-            fromEvent(document, 'mouseup').subscribe(_ => {
-                const index: number = state.temporarilyEvents.findIndex(event => {
-                    return event.id === this.newEvent.id;
-                });
-                if (index === -1) {
-                    // Event doesn't exist create new event
-                    this.store.addTemporarilyEvent(this.newEvent);
-                    this.createEvent.emit(this.newEvent);
-                }
-
-
-               /* EventFormDialogComponent.openDialog(this.matDialog, {
-                    event: this.newEvent,
-                    serviceCategories: [],
-                    clients: []
-                }).pipe(
+            fromEvent(document, 'mouseup')
+                .pipe(
                     first()
-                ).subscribe((result) => {
-                    if (result.action !== DispatcherActionTypes.CLOSE_DIALOG) {
-                        this.store.updateEvent(result.data);
-                    } else {
-                        this.store.removeEvent(this.newEvent);
-                    }
-                });*/
-
-
-            });
+                )
+                .subscribe(_ => {
+                    this.openEventDialog(this.matDialog, this.newEvent, false);
+                });
         });
 
+    }
+
+    private openEventDialog(matDialog: MatDialog, event: CalendarEvent<MetaEvent>, isExistingEvent: boolean) {
+        EventFormDialogComponent.openDialog(matDialog, {
+            event,
+            serviceCategories: [],
+            clients: this.clients,
+            employeeId: this.employeeId
+        }).pipe(
+            first()
+        ).subscribe((result) => {
+            if (result.action === DispatcherActionTypes.UPDATE) {
+                this.eventUpdated.emit(result.data);
+                this.store.updateEvent(result.data);
+            } else if (result.action === DispatcherActionTypes.DELETE) {
+                this.eventDeleted.emit(result.data);
+                this.store.removeEvent(result.data);
+            } else if (result.action === DispatcherActionTypes.CREATE) {
+                this.eventCreated.emit(result.data);
+                this.store.updateEvent(result.data);
+            } else if (result.action === DispatcherActionTypes.CLOSE_DIALOG) {
+                console.log('CloseDialog');
+                this.store.removeEvent(result.data);
+            }
+        });
     }
 
     onEventMoved(changeEvent: CalendarEventTimesChangedEvent) {
@@ -169,22 +194,13 @@ export class CalendarViewComponent implements OnInit {
         };
 
         this.store.updateEvent(movedEvent);
-        this.eventMoved.emit(movedEvent);
+        this.eventUpdated.emit(movedEvent);
     }
 
     onEventClicked(event: CalendarEvent<MetaEvent>) {
+        console.log('onEventClicked');
         this.eventClicked.emit(event);
-        EventFormDialogComponent.openDialog(this.matDialog, {
-            event,
-            serviceCategories: [],
-            clients: []
-        }).pipe(
-            first()
-        ).subscribe((result) => {
-            if (result.action !== DispatcherActionTypes.CLOSE_DIALOG) {
-                this.store.updateEvent(result.data);
-            }
-        });
+        this.openEventDialog(this.matDialog, event, true);
     }
 
     onDayClicked(date: Date) {

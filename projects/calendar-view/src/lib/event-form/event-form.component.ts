@@ -29,6 +29,8 @@ export class EventFormComponent implements OnInit, OnChanges {
     serviceCategories: Array<ServiceCategory> = [];
     @Input()
     clients: Array<Client> = [];
+    @Input()
+    employeeId: string;
     @Output()
     submitted: EventEmitter<DataDispatcher<CalendarEvent<MetaEvent>>> = new EventEmitter<DataDispatcher<CalendarEvent<MetaEvent>>>();
 
@@ -87,10 +89,11 @@ export class EventFormComponent implements OnInit, OnChanges {
     onSubmit(value: any) {
         let meta: MetaEvent = {
             services: value?.services || [],
-            clientId: value?.client
+            clientId: value?.client,
+            employeeId: this.employeeId
         };
 
-        // deletes undefinded properties
+        // deletes undefined properties
         meta = _.pickBy(meta, _.identity);
 
         delete value?.services;
@@ -114,12 +117,31 @@ export class EventFormComponent implements OnInit, OnChanges {
     }
 
     onDelete() {
-        this.submitted.emit({ data: null, action: DispatcherActionTypes.DELETE });
+        let meta: MetaEvent = {
+            services: [],
+            employeeId: this.employeeId
+        };
+        // deletes undefined properties
+        meta = _.pickBy(meta, _.identity);
+        const data = { ...this.event, meta };
+        this.submitted.emit({
+            data,
+            action: DispatcherActionTypes.DELETE
+        });
     }
 
     close() {
+
+
+        let meta: MetaEvent = {
+            services: [],
+            employeeId: this.employeeId
+        };
+        // deletes undefined properties
+        meta = _.pickBy(meta, _.identity);
+        const data = { ...this.event, meta };
         this.submitted.emit({
-            data: null,
+            data,
             action: DispatcherActionTypes.CLOSE_DIALOG
         });
     }

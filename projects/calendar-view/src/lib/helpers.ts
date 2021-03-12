@@ -51,5 +51,8 @@ export const defaultEvent: CalendarEvent<MetaEvent> = {
     resizable: {
         beforeStart: true,
         afterEnd: true
+    },
+    meta: {
+        services: [],
     }
 };

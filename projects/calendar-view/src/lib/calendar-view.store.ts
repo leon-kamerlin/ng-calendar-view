@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { CalendarEvent, CalendarView, DAYS_OF_WEEK } from 'angular-calendar';
-import { SelectorView } from 'leon-angular-utils';
-import { MetaEvent } from 'leon-angular-utils';
+import { MetaEvent, SelectorView } from 'leon-angular-utils';
 import { ComponentStore } from '@ngrx/component-store';
 import { hourSegments } from './helpers';
 import { distinctUntilChanged } from 'rxjs/operators';
@@ -11,14 +10,13 @@ export interface CalendarViewState {
     calendarTitleView: string;
     viewDate: Date;
     locale: string;
-    excludeDays: number[];
+    excludeDays: DAYS_OF_WEEK[];
     weekStartsOn: DAYS_OF_WEEK;
     dayStartHour: number;
     dayEndHour: number;
     hourSegments: number;
     segments: SelectorView[];
     events: CalendarEvent<MetaEvent>[];
-    temporarilyEvents: CalendarEvent<MetaEvent>[];
 }
 
 @Injectable()
@@ -29,14 +27,16 @@ export class CalendarViewStore extends ComponentStore<CalendarViewState> {
             calendarTitleView: 'weekViewTitle',
             viewDate: new Date(),
             locale: 'en-EN',
-            excludeDays: [],
+            excludeDays: [
+                DAYS_OF_WEEK.SATURDAY,
+                DAYS_OF_WEEK.SUNDAY
+            ],
             weekStartsOn: DAYS_OF_WEEK.MONDAY,
             dayStartHour: 8,
             dayEndHour: 18,
             hourSegments: 4,
             segments: hourSegments,
             events: [],
-            temporarilyEvents: []
         });
     }
 
@@ -55,21 +55,6 @@ export class CalendarViewStore extends ComponentStore<CalendarViewState> {
         (state: CalendarViewState, event: CalendarEvent<MetaEvent>) => ({
             ...state,
             events: state.events.map(item => item.id === event.id ? event : item)
-        })
-    );
-
-
-    readonly removeTemporarilyEvent = this.updater(
-        (state: CalendarViewState, event: CalendarEvent<MetaEvent>) => ({
-            ...state,
-            temporarilyEvents: state.temporarilyEvents.filter(item => item.id !== event.id)
-        })
-    );
-
-    readonly addTemporarilyEvent = this.updater(
-        (state: CalendarViewState, event: CalendarEvent<MetaEvent>) => ({
-            ...state,
-            temporarilyEvents: [...state.temporarilyEvents, event]
         })
     );
 
@@ -98,9 +83,6 @@ export class CalendarViewStore extends ComponentStore<CalendarViewState> {
         distinctUntilChanged()
     );
     readonly segments$ = this.select(state => state.segments).pipe(
-        distinctUntilChanged()
-    );
-    readonly temporarilyEvents$ = this.select(state => state.temporarilyEvents).pipe(
         distinctUntilChanged()
     );
     readonly view$ = this.select(state => state.view).pipe(

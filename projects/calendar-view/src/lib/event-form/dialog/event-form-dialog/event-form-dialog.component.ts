@@ -8,6 +8,7 @@ export interface DialogData {
     event: CalendarEvent<MetaEvent>;
     clients: Array<Person>;
     serviceCategories: Array<ServiceCategory>;
+    employeeId: string;
 }
 
 @Component({

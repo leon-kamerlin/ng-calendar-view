@@ -16,7 +16,7 @@
         <mat-label>Clients</mat-label>
         <mat-select [formControl]="client">
             <mat-option *ngFor="let client of clients"
-                        [value]="client.id">{{ client.firstName }}</mat-option>
+                        [value]="client.firstName + client.lastName">{{ client.firstName }}</mat-option>
         </mat-select>
     </mat-form-field>
 

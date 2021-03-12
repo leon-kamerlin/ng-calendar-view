@@ -101,6 +101,7 @@
 
     <mwl-calendar-week-view
         *ngSwitchCase="'week'"
+        [weekStartsOn]="(store.weekStartsOn$ | async)"
         [viewDate]="(store.viewDate$ | async)"
         [events]="(store.events$ | async)"
         [dayStartHour]="(store.dayStartHour$ | async)"
